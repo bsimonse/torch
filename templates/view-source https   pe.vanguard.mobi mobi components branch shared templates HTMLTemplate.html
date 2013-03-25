@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<!-- 
+A template for an HTML page that uses a torch controller
+
+Of course, normally you will be including the canvas(es) on an already
+existing and formatted page, but this template shows the minimum required
+code to include and run a controller.  To incorporate it into an existing
+page, simply copy and paste the items below where appropriate to your
+existing page.
+
+To use this page, simply include your own controller file as a script,
+create a new instance of your controller, and pass any data you need (if any).
+The controller will then run on page load.
+
+This template is very basic, and there are many other styles and scripts
+you could write to add more functionality to your page.  Feel free to
+expand on this template.
+ -->
+ 
+<html><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="target-densitydpi=device-dpi, width=device-width, initial-scale=1, user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1"> <!--CHROME FRAME-->
+<script src="../../shared/javascript/torch.min.js"></script>
+<script src="../../shared/javascript/torchFullLibrary.min.js"></script>
+
+<!--Your Controller file here-->
+<script src="<YOUR SOURCE FILE>"></script>
+
+<script>
+
+//this default has one generic controller and one data object.
+//Your own implementation may have more such objects if you have
+//multiple canvases or elements on the page.
+var controller;
+var data;
+
+function onPageLoaded()
+{
+	//Setup your controller and options
+	controller=new <YOUR CONTROLLER NAME>;
+
+	var options = {canvas:document.getElementById("theCanvas")};
+	if(!controller.setup(options))
+	{alert('Setup fail');}
+
+	//data = {yourData:"goesHere";};
+	//controller.loadData(data);
+	
+	controller.play();
+}
+</script>
+</head>
+<body onload="onPageLoaded()"><canvas id="theCanvas" width=600 height=300></canvas></body>
+</html>
