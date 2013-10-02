@@ -65,6 +65,31 @@
  * back to the identity matrix when setupInteractiveCanvas is called.
  */
 
+//Bind!
+if (!Function.prototype.bind) {
+  Function.prototype.bind = function (oThis) {
+    if (typeof this !== "function") {
+      // closest thing possible to the ECMAScript 5 internal IsCallable function
+      throw new TypeError("Function.prototype.bind - what is trying to be bound is not callable");
+    }
+
+    var aArgs = Array.prototype.slice.call(arguments, 1), 
+        fToBind = this, 
+        fNOP = function () {},
+        fBound = function () {
+          return fToBind.apply(this instanceof fNOP && oThis
+                                 ? this
+                                 : oThis,
+                               aArgs.concat(Array.prototype.slice.call(arguments)));
+        };
+
+    fNOP.prototype = this.prototype;
+    fBound.prototype = new fNOP();
+
+    return fBound;
+  };
+}
+
 //Global object; makes "torch" a reserved variable (well... "reserved" in the sense that you shouldn't overwrite it.)
 var torch = {};
 torch.helperMethods = {};
@@ -139,6 +164,16 @@ torch.lib.baseTorchObject = function()
 	proto.blur = function()
 	{this.hasCanvasFocus = false;};
 };
+
+new function(){
+	//haha private variables!  Cheating rules!
+	var func = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+	func = func || function(callback){window.setTimeout(callback,1);}
+	torch.requestAnimationFrame = function(callback)
+	{
+		func(callback);
+	}
+}();
 
 torch.setupInteractiveCanvas = function(canvas)
 {
@@ -262,6 +297,11 @@ torch.setupInteractiveCanvas = function(canvas)
 	return true;
 };
 
+torch.suppressNativeTouchEvents= function(canvas)
+{
+	canvas.onselectstart = function(){return false;}
+	canvas.oncanvastouchstart = function(e){e.preventDefault();}
+}
 torch.drawController = function(controller, timeout)
 {
 	if(controller == undefined){return false;}
@@ -272,7 +312,14 @@ torch.helperMethods.createEventMethod = function(canvas, eventName)
 {
 	canvas["on"+eventName]=function(e) {
 		torch.helperMethods.canvasEventHitDetection(e, this); 
-		if(this["oncanvas"+eventName] != null){return this["oncanvas"+eventName](e);}
+		if(this["oncanvas"+eventName] != null)
+		{
+			try{return this["oncanvas"+eventName](e);}
+			catch(e)
+			{
+				if(console){console.log(e.name+": "+e.message);}
+			}
+		}
 	};
 };
 
@@ -325,13 +372,21 @@ torch.createNewCanvasLayer = function(oldCanvas, zIndex)
  */
 torch.helperMethods.canvasEventHitDetection = function(globalE, hitCanvas)
 {
-	var h = torch.helperMethods;
-	if(globalE.type.indexOf("touch") > -1)
-	{h.canvasTouchHitDetection(globalE, hitCanvas);}
-	else if(globalE.type.indexOf("key") > -1)
-	{h.canvasKeyEvent(globalE, hitCanvas);}
-	else
-	{h.canvasMouseHitDetection(globalE, hitCanvas);}
+	try
+	{
+		var h = torch.helperMethods;
+		
+		if(globalE.type.indexOf("touch") > -1)
+		{h.canvasTouchHitDetection(globalE, hitCanvas)}
+		else if(globalE.type.indexOf("key") > -1)
+		{h.canvasKeyEvent(globalE, hitCanvas)}
+		else
+		{h.canvasMouseHitDetection(globalE, hitCanvas)}
+	}
+	catch(e)
+	{
+		if(console){console.log(e.name+": "+e.message);}
+	}
 };
 
 torch.helperMethods.canvasMouseHitDetection = function(globalE, hitCanvas) {
@@ -345,6 +400,12 @@ torch.helperMethods.canvasMouseHitDetection = function(globalE, hitCanvas) {
 	var m = hitCanvas.getContext("2d").currentTransform.inverse();
 	var newX = m.a*localPoint.x+m.c*localPoint.y+m.e;
 	var newY = m.b*localPoint.x+m.d*localPoint.y+m.f;
+
+	//determine scaling
+	var scaleFactor = hitCanvas.width/hitCanvas.clientWidth;
+	newX*=scaleFactor;
+	newY*=scaleFactor;
+
 	torch.helperMethods.canvasMouseDelegator(newX, newY, globalE, hitCanvas);
 };
 
@@ -353,7 +414,7 @@ torch.helperMethods.canvasTouchHitDetection = function(globalE, hitCanvas)
 	//We spelled GREED, we locked two balls in the vault,
 	//it's time for multi-touch!
 	var touch;
-	
+
 	for(var i=0; i<globalE.changedTouches.length; i++)
 	{
 		touch = globalE.changedTouches[i];
@@ -363,6 +424,12 @@ torch.helperMethods.canvasTouchHitDetection = function(globalE, hitCanvas)
 		var m = hitCanvas.getContext("2d").currentTransform.inverse();
 		var newX = m.a*localPoint.x+m.c*localPoint.y+m.e;
 		var newY = m.b*localPoint.x+m.d*localPoint.y+m.f;
+
+		//determine scaling
+		var scaleFactor = hitCanvas.width/hitCanvas.clientWidth;
+		newX*=scaleFactor;
+		newY*=scaleFactor;
+
 		torch.helperMethods.canvasTouchDelegator(newX, newY, globalE, touch, hitCanvas);
 	}
 };
@@ -404,8 +471,8 @@ torch.helperMethods.canvasTouchDelegator = function(localX, localY, globalE, tou
 		hitCanvas["canTap"+id] = true;
 		hitCanvas.touchMap.add(touch.identifier, hitCanvas.touchMap.length());
 	}
-	
-	if(eventType == "touchend")
+
+	if(eventType == "touchend" || eventType == "touchcancel")
 	{
 		hitCanvas.touchMap.remove(touch.identifier);
 	}
@@ -421,7 +488,7 @@ torch.helperMethods.canvasTouchDelegator = function(localX, localY, globalE, tou
 	{
 		hitCanvas["canTap"+id] = false;
 	}
-	
+
 	//for every given canvas object
 	for(var i=hitCanvas.length()-1; i>-1; i--) {
 		var target = hitCanvas.getByIndex(i);
@@ -432,21 +499,40 @@ torch.helperMethods.canvasTouchDelegator = function(localX, localY, globalE, tou
 
 torch.helperMethods.evaluateAndDelegateTouchEvent = function(target, x, y, e, canvas, touchId)
 {
+	//prep touches
+	if(!target.activeTouches){target.activeTouches = [];}
+	if(!target.currentTouchCount){target.currentTouchCount = 0;}
+
+	//First, cleanup touches that have been removed
+	for(index in target.activeTouches)
+	{
+		var elem = target.activeTouches[index];
+		var id = canvas.touchMap.getByKey(elem);
+		if(elem != undefined && id == null && id != touchId)
+		{
+			//listening to a dead touch; remove
+			target.activeTouches[index] = undefined;
+			target.currentTouchCount--;
+		}
+	}
+
+	//splice out undefineds later?
+
+
 	var eventType = e.type;
 	var context = canvas.getContext("2d");
 	if (target.hitDetect != null && target.hitDetect(x, y, context, e))
 	{
-		if(target["isListeningTo"+touchId] != true)
+		if(target.activeTouches.indexOf(touchId) < 0)
 		{
 			if(target.currentTouchCount < target.maxSimulTouches)
 			{
-				target["isListeningTo"+touchId] = true;
+				target.activeTouches.push(touchId);
 				target.currentTouchCount++;
 			}
 			else
 			{return;}
 		}
-		
 		
 		//if mouse was not over but now is, active mouseover event
 		if(target.isTouchOver != true)
@@ -475,7 +561,8 @@ torch.helperMethods.evaluateAndDelegateTouchEvent = function(target, x, y, e, ca
 					if(target.ontouchout != null){target.ontouchout(x, y, e, context, touchId);}
 				}
 				
-				target["isListeningTo"+touchId] = undefined;
+				var index = target.activeTouches.indexOf(touchId);
+				target.activeTouches[index] = undefined;
 				target.currentTouchCount--;
 			}
 		}
@@ -486,7 +573,7 @@ torch.helperMethods.evaluateAndDelegateTouchEvent = function(target, x, y, e, ca
 			if(target["on"+eventType] != null){target["on"+eventType](x, y, e, context, touchId);};
 		}
 	}
-	else if(target["isListeningTo"+touchId] == true)	//target not hit
+	else if(target.activeTouches.indexOf(touchId) > -1)	//target not hit but is tracking touch
 	{
 		if(canvas.focusActive && target.hasCanvasFocus){target.blur();}
 		
@@ -495,7 +582,8 @@ torch.helperMethods.evaluateAndDelegateTouchEvent = function(target, x, y, e, ca
 			target.isTouchOver = false;
 			if(target.ontouchout != null){target.ontouchout(x, y, e, context, touchId);}
 		}
-		target["isListeningTo"+touchId] = undefined;
+		var index = target.activeTouches.indexOf(touchId);
+		target.activeTouches[index] = undefined;
 		target.currentTouchCount--;
 	}
 };
@@ -686,7 +774,7 @@ torch.Group = function()
 		var detected = false;
 		var ctm = this.currentTransform;
 		var ctmI = this.currentTransform.inverse();
-		
+
 		//apply inverse
 		var newX = ctmI.a*x+ctmI.c*y+ctmI.e;
 		var newY = ctmI.b*x+ctmI.d*y+ctmI.f;
@@ -696,7 +784,7 @@ torch.Group = function()
 		for(var i=0; i<this.speakingObjects.length(); i++)
 		{
 			//if any object is detected, then Group should receive event.
-			detected = detected || this.speakingObjects.getByIndex(i).hitDetect(newX,newY,context);
+			detected = detected | this.speakingObjects.getByIndex(i).hitDetect(newX,newY,context);
 			if(detected){i=this.speakingObjects.length();}
 		}
 		context.restore();
@@ -733,14 +821,14 @@ torch.Group = function()
 	};
 	
 	this.ontouchstart = this.ontouchend = this.ontouchmove = function(x,y,e,context,touch)
-	{		
+	{
 		var ctm = this.currentTransform;
 		var ctmI = this.currentTransform.inverse();
 		
 		//apply inverse
 		var newX = ctmI.a*x+ctmI.c*y+ctmI.e;
 		var newY = ctmI.b*x+ctmI.d*y+ctmI.f;
-		
+
 		context.save();
 		context.transform(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
 		for(var i=0; i<this.speakingObjects.length(); i++)
@@ -942,7 +1030,11 @@ torch.helperMethods.SVGMatrix = function()
 		o.d = t.a/det;
 		o.e = (t.c*t.f-t.e*t.d)/det;
 		o.f = (t.b*t.e-t.a*t.f)/det;
-        return o;
+
+		return o;
+
+		//t.a=o.a;t.b=o.b;t.c=o.c;t.d=o.d;t.e=o.e;t.f=o.f;
+		//return t;
 	};
 	
 	this.translate = function(x, y)
@@ -1062,10 +1154,13 @@ torch.giveSmartCTM = function(c)
 		if(this.nativeTransform != null){this.nativeTransform(a, b, c, d, e, f);}
 	};
 	
-	//although the signature has 6 parameters,
-	//this method will also accept a single array
-	//of length 6 that contains the variables as well.
-	//Javascript does not have overloading.
+	c.setTranslate = function(x,y)
+	{
+		var t = this.currentTransform;
+		t.e = x;
+		t.f = y;
+	};
+
 	c.setTransform = function(a, b, c, d, e, f)
 	{
 		//reset and transform
@@ -1104,8 +1199,7 @@ torch.giveSmartCTM = function(c)
 	};
 	
 	//Note you can access the currentTransform directly
-};
-//SCALING
+};//SCALING
 
 //These scaling methods ONLY affect the context drawing area of the canvas,
 //and will NOT affect the HTML size of the canvas itself.  That responsibility
@@ -1372,6 +1466,7 @@ torch.Map = function()
 			if(this.keys[i] == key)
 			{
 				this.keys.splice(i, 1);
+				this.values[key]=null;
 				return true;
 			}
 		}
@@ -1651,6 +1746,7 @@ torch.anim.easeBezier = function(p1, p2)
 		while(s>b)
 		{
 			z=this.bez(p1.x,p2.x);
+//if(Math.abs(z-x) < b){return this.bez(p1.y,p2.y);}else{z>x?t-=s:t+=s;s/=2;}
 			if(Math.abs(z-x) < b){return this.bez(p1.y,p2.y);}else if(z > x){t-=s;s/=2;}else if(z < x){t+=s;s/=2;}
 		}
 		

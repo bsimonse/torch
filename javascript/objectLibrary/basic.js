@@ -95,6 +95,43 @@ torch.lib.trail = function(strokeStyle, width, hitWidth)
 };
 torch.lib.trail.prototype = new torch.lib.baseTorchObject();
 
+torch.lib.shape = function(fillStyle)
+{
+	this.points = [];
+	this.fill = fillStyle || "";
+	
+	//convenience method; accessing points directly is also ok
+	this.addPoint = function(point)
+	{
+		this.points.push(point);
+	};
+	
+	this.draw = function(context)
+	{
+		if(this.points.length < 2){return;}
+		
+		var point = new torch.point2d();
+		
+		context.save();
+		context.fillStyle = this.fill;
+		context.beginPath();
+		point = this.points[0];
+		context.moveTo(point.x, point.y);
+		
+		for(var i=1; i<this.points.length; i++)
+		{
+			point = this.points[i];
+			context.lineTo(point.x, point.y);
+		}
+
+		point = this.points[0];
+		context.lineTo(point.x, point.y);
+		context.fill();
+		context.restore();
+	};
+};
+torch.lib.shape.prototype = new torch.lib.baseTorchObject();
+
 torch.lib.circle = function(radius, center, fill, stroke, strokeWidth)
 {
 	this.radius = radius || 10;
@@ -132,10 +169,12 @@ torch.lib.circle = function(radius, center, fill, stroke, strokeWidth)
 };
 torch.lib.circle.prototype = new torch.lib.baseTorchObject();
 
-torch.lib.rectangle = function(upperLeft, bottomRight, fill, strokeWidth, stroke)
+torch.lib.rectangle = function(x,y,width,height, fill, strokeWidth, stroke)
 {
-	this.upperLeft = upperLeft;
-	this.bottomRight = bottomRight;
+	this.x = x;
+	this.y = y;
+	this.width=width;
+	this.height=height;
 	this.fill = fill || "black";
 	this.strokeWidth = strokeWidth || 0;
 	if(this.strokeWidth < 0){this.strokeWidth = 0;}
@@ -151,21 +190,23 @@ torch.lib.rectangle = function(upperLeft, bottomRight, fill, strokeWidth, stroke
 		//to do: check if fill is valid
 		//string test alone won't work, as patterns are valid fills.
 		context.beginPath();
-		context.moveTo(this.point1.x, this.point1.y);
-		context.lineTo(this.point2.x, this.point1.y);
-		context.lineTo(this.point2.x, this.point2.y);
-		context.lineTo(this.point1.x, this.point2.y);
-		context.lineTo(this.point1.x, this.point1.y);
+		context.moveTo(this.x, this.y);
+		context.lineTo(this.x+this.width, this.y);
+		context.lineTo(this.x+this.width, this.y+this.height);
+		context.lineTo(this.x, this.y+this.height);
+		context.lineTo(this.x, this.y);
+		context.lineTo(this.x+this.width, this.y);	//for the mitering
 		context.fill();
 		
 		if(this.strokeWidth > 0)
 		{
 			context.beginPath();
-			context.moveTo(this.point1.x, this.point1.y);
-			context.lineTo(this.point2.x, this.point1.y);
-			context.lineTo(this.point2.x, this.point2.y);
-			context.lineTo(this.point1.x, this.point2.y);
-			context.lineTo(this.point1.x, this.point1.y);
+			context.moveTo(this.x, this.y);
+			context.lineTo(this.x+this.width, this.y);
+			context.lineTo(this.x+this.width, this.y+this.height);
+			context.lineTo(this.x, this.y+this.height);
+			context.lineTo(this.x, this.y);
+			context.lineTo(this.x+this.width, this.y);
 			context.stroke();
 		}
 		context.restore();
@@ -173,20 +214,11 @@ torch.lib.rectangle = function(upperLeft, bottomRight, fill, strokeWidth, stroke
 	
 	this.hitDetect = function(x,y)
 	{
-		//since upperleft/lowerright is not enforced, some error handling needed.
-		var p1x = this.point1.x;
-		var p1y = this.point1.y;
-		var p2x = this.point2.x;
-		var p2y = this.point2.y;
-		var strokeAdjustX = this.strokeWidth/2;
-		var strokeAdjustY = strokeAdjustX;
-		
-		if(p1x > p2x){strokeAdjustX*=-1;}
-		if(p1y > p2y){strokeAdjustY*=-1;}
+		var strokeAdjust = this.strokeWidth/2;
 		
 		var t = torch.util;
-		return (t.isNegative(x - (p1x-strokeAdjustX)) == t.isNegative((p2x+strokeAdjustX) - x) && 
-				t.isNegative(y - (p1y-strokeAdjustY)) == t.isNegative((p2y+strokeAdjustY) - y));
+		return (t.isNegative(x - (this.x-strokeAdjust)) == t.isNegative((this.x+this.width+strokeAdjust) - x) && 
+				t.isNegative(y - (this.y-strokeAdjust)) == t.isNegative((this.y+this.height+strokeAdjust) - y));
 	};
 };
 torch.lib.rectangle.prototype = new torch.lib.baseTorchObject();
@@ -251,7 +283,7 @@ torch.lib.textLabel = function(text, origin, font, alignment, baseline, maxWidth
 			{
 				line = line.trim();
 				lineArray.push(line); 
-				line = word;
+				line = word+" ";
 			}
 		}     
 

@@ -114,7 +114,11 @@ torch.helperMethods.SVGMatrix = function()
 		o.d = t.a/det;
 		o.e = (t.c*t.f-t.e*t.d)/det;
 		o.f = (t.b*t.e-t.a*t.f)/det;
-        return o;
+
+		return o;
+
+		//t.a=o.a;t.b=o.b;t.c=o.c;t.d=o.d;t.e=o.e;t.f=o.f;
+		//return t;
 	};
 	
 	this.translate = function(x, y)
@@ -234,10 +238,13 @@ torch.giveSmartCTM = function(c)
 		if(this.nativeTransform != null){this.nativeTransform(a, b, c, d, e, f);}
 	};
 	
-	//although the signature has 6 parameters,
-	//this method will also accept a single array
-	//of length 6 that contains the variables as well.
-	//Javascript does not have overloading.
+	c.setTranslate = function(x,y)
+	{
+		var t = this.currentTransform;
+		t.e = x;
+		t.f = y;
+	};
+
 	c.setTransform = function(a, b, c, d, e, f)
 	{
 		//reset and transform

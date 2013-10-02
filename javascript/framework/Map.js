@@ -45,6 +45,7 @@ torch.Map = function()
 			if(this.keys[i] == key)
 			{
 				this.keys.splice(i, 1);
+				this.values[key]=null;
 				return true;
 			}
 		}

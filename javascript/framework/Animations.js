@@ -131,6 +131,7 @@ torch.anim.easeBezier = function(p1, p2)
 		while(s>b)
 		{
 			z=this.bez(p1.x,p2.x);
+//if(Math.abs(z-x) < b){return this.bez(p1.y,p2.y);}else{z>x?t-=s:t+=s;s/=2;}
 			if(Math.abs(z-x) < b){return this.bez(p1.y,p2.y);}else if(z > x){t-=s;s/=2;}else if(z < x){t+=s;s/=2;}
 		}
 		

@@ -1,7 +1,7 @@
 @echo off
 set baseDir=%CD%
 echo %baseDir%
-set topDir=%baseDir%/../..
+set topDir=%baseDir%\..
 
 set allFilesSize=0
 set allFilesCompressedSize=0
@@ -9,7 +9,7 @@ set jarCommand=java -jar "%baseDir%"/yuicompressor-2.4.2.jar
 
 echo Starting minification...
 echo %topDir%
-cd %topDir%/shared/javascript/
+cd %topDir%\javascript\
 del torch.js
 del torchFullLibrary.js
 cd framework
@@ -17,17 +17,17 @@ cd framework
 echo 	Minifying framework files...
 echo		Rebuilding torch.js...
 echo			Adding InteractiveCanvasHelper.js
-type InteractiveCanvasHelper.js >> ../torch.js
+type InteractiveCanvasHelper.js >> ..\torch.js
 echo			Adding CTM.js
-type CTM.js >> ../torch.js
+type CTM.js >> ..\torch.js
 echo			Adding AppCommands.js
-type AppCommands.js >> ../torch.js
+type AppCommands.js >> ..\torch.js
 echo			Adding Map.js
-type Map.js >> ../torch.js
+type Map.js >> ..\torch.js
 echo			Adding Location.js
-type Location.js >> ../torch.js
+type Location.js >> ..\torch.js
 echo			Adding Animations.js
-type Animations.js >> ../torch.js
+type Animations.js >> ..\torch.js
 
 echo		torch.js rebuilt!
 
@@ -42,13 +42,13 @@ echo	Minifying object library files...
 
 echo		Rebuilding torchFullLibrary.js...
 echo			Adding basic.js
-type basic.js >> ../torchFullLibrary.js
+type basic.js >> ..\torchFullLibrary.js
 echo			Adding widgets.js
-type widgets.js >> ../torchFullLibrary.js
+type widgets.js >> ..\torchFullLibrary.js
 echo			Adding charting.js
-type charting.js >> ../torchFullLibrary.js
+type charting.js >> ..\torchFullLibrary.js
 echo			Adding 3d.js
-type 3d.js >> ../torchFullLibrary.js
+type 3d.js >> ..\torchFullLibrary.js
 
 echo		torchFullLibrary.js rebuilt!
 cd ..
